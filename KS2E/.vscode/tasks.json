@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+      {
+          "label": "make build",
+          "type": "shell",
+          "command": "make",
+          "args": [
+              "all"
+          ],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          },
+          "problemMatcher": ["$g++"],
+          "detail": "调用 Makefile 进行项目的构建"
+      }
+  ]
+}
+
+

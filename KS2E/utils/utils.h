@@ -1,6 +1,3 @@
-#ifndef UTILS_H
-#define UTILS_H
-
 #pragma once
 
 #include <iostream>  // 用于标准输入输出（cerr）
@@ -19,6 +16,10 @@
 #include <iomanip>
 
 using namespace std;
+
+void view_pt(const std::vector<unsigned char>& v_w);
+
+void view_vc(const std::vector<unsigned char>& vc);
 
 std::vector<unsigned char> uint2vc(unsigned int value);
 
@@ -58,12 +59,13 @@ void mergeFiles(const std::string& file1, const std::string& file2, const std::s
 void generate_random_key(char *key, size_t len);
 
 /**
- * @brief 字节数组->字节向量
+ * @brief 
  * 
  * @param px 
+ * @param len 
  * @return std::vector<unsigned char> 
  */
-std::vector<unsigned char> toByteVector(const char* px);
+std::vector<unsigned char> toByteVector(const unsigned char* px, size_t len);
 
 /**
  * @brief uint->Bytes
@@ -79,7 +81,7 @@ std::vector<unsigned char> uintToBytes(unsigned int id);
  * @param dir 
  * @param keywordMap 
  */
-void read_keywords(char* dir, map<string, vector<unsigned int>>& keywordMap);
+void read_keywords(const char* dir, map<string, vector<string>>& keywordMap);
 
 /**
  * @brief Get the L_1 ks_1 of each len f_len
@@ -99,6 +101,11 @@ void get_L_1_ks_1(std::vector<unsigned char>& L_1_ks_1,std::vector<unsigned char
  */
 unsigned int bytesToUint(const std::vector<unsigned char>& bytes);
 
-
-
-#endif // UTILS_H
+/**
+ * @brief write search result to files
+ * 
+ * @param search_result 
+ * @param search_output_dir 
+ */
+void search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
+    const std::string& search_output_dir);

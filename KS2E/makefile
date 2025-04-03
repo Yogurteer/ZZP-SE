@@ -12,7 +12,7 @@ OPENSSL_LIB = $(OPENSSL_DIR)/lib
 OPENSSL_INC = $(OPENSSL_DIR)/include
 
 # 编译器选项
-CXXFLAGS = -Wall -g -std=c++17 -I$(OPENSSL_INC)
+CXXFLAGS = -Wall -g -O0 -std=c++17 -I$(OPENSSL_INC)
 
 # 链接器选项
 LDFLAGS = -L$(OPENSSL_LIB) -lgmp -lssl -lcrypto -Wl,-rpath,$(OPENSSL_LIB)
@@ -23,10 +23,11 @@ TARGET = main
 # 源文件按模块划分
 UTILS_SRCS = \
     utils/utils.cpp \
-    utils/encrypt.cpp
+    utils/encrypt.cpp \
+    utils/inter.cpp
 
 PROTOCOL_SRCS = \
-    include/FPKS2E.cpp
+    include/KS2E.cpp
 
 # 汇总所有源文件
 SRCS = \

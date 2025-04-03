@@ -1,33 +1,41 @@
 #include "FPKS2E.h"
 #include <iostream>
 
-// 构造函数
-FPKS2E::FPKS2E() {
+void FPKS2EClient::setup() {
+    std::cout << "Setting up FPKS2E Client..." << std::endl;
 }
 
-// 析构函数
-FPKS2E::~FPKS2E() {
+void FPKS2EClient::init_key(const char key1[keylen], const char key2[keylen])
+{
+    memcpy(k1, key1, keylen);
+    memcpy(k2, key2, keylen);
 }
 
-// setup 方法
-void FPKS2E::setup() {
-    generate_random_key(k1,32);
-    generate_random_key(k2,32);
-    std::cout << "Setting up FPKS2E system..." << std::endl;
+void FPKS2EClient::reset_state()
+{
+    lastID.clear();
+    W.clear();
+    SC.clear();
+    UC.clear();
 }
 
-void FPKS2E::update(pair<string,unsigned int> w_id, char op){
-    string w=w_id.first;
-    unsigned int id=w_id.second;
+void FPKS2EClient::reset_cipher_store()
+{
+    this->cipher_store.clear();
+}
+
+void FPKS2EClient::update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op){
+    vector<unsigned char> w=w_id.first;
+    vector<unsigned char> id=w_id.second;
 
     vector<unsigned char> v_k1 = toByteVector(k1);
     vector<unsigned char> v_k2 = toByteVector(k2);
 
     // 1.client插入w到W
-    W.insert(w);
+    this->W.insert(w);
 
     // 2.判断lastID[w]是否为空,赋值id_op
-    pair<unsigned int,char> id_op_1; //默认为空
+    pair<vector<unsigned char>,vector<unsigned char>> id_op_1= {{'\0'},{'\0'}}; //默认为空
     if(lastID.find(w)==lastID.end()){
         SC[w]=0;
     }
@@ -37,47 +45,100 @@ void FPKS2E::update(pair<string,unsigned int> w_id, char op){
 
     // 3.计算中间量L,Rw,ks,Cw,Iw,L1,ks1
     int sw = SC[w];
-    string px_str = w + to_string(sw) + to_string(id) + to_string(op);  // px = w||sw||id||op
-    const char* px = px_str.c_str();
-    vector<unsigned char> v_px = toByteVector(px);
+
+    auto v_px = concatVectors(w, uint2vc(sw), id, op);
 
     vector<unsigned char> L = gm_hmac(v_px.data(),v_px.size(),v_k1.data(),v_k1.size(),f_len); // F即sha256_hmac
     vector<unsigned char> Rw = gen_Rw(); //长度4
     vector<unsigned char> ks = gm_hmac(v_px.data(),v_px.size(),v_k2.data(),v_k2.size(),f_len); //长度8
 
     // 用id的vc形式替换Cw
-    vector<unsigned char> v_id = uintToBytes(id);
-    vector<unsigned char> Cw = v_id;
+    vector<unsigned char> Cw = id;
 
     // 判断上一次链尾的id_op_1是否为空,计算Iw
     vector<unsigned char> Iw;
     vector<unsigned char> HsR = gm_hmac(ks.data(),ks.size(),Rw.data(),Rw.size(),f_len*2); // H即sha256_hmac_v,长度16
-    if (id_op_1.first == 0 && id_op_1.second == '\0'){
+    if (id_op_1.first == vector<unsigned char>{'\0'} && id_op_1.second == vector<unsigned char>{'\0'}){
         // 如果为空则用零字节向量zero_head求Iw
         vector<unsigned char> zero_head(f_len*2, 0);
         Iw = xor_encrypt_vc(HsR, zero_head);
     }
     else{
         // 如果不为空,则正常求L1,ks1,Iw
-        unsigned int id_1=id_op_1.first;
-        char op_1=id_op_1.second;
-        string px1_str = w + to_string(sw) + to_string(id_1) + to_string(op_1);  // px1 = w||sw||id_1||op_1
-        const char* px1 = px1_str.c_str();
-        vector<unsigned char> v_px1 = toByteVector(px1);
+        vector<unsigned char> id_1=id_op_1.first;
+        vector<unsigned char> op_1=id_op_1.second;
+
+        auto v_px1 = concatVectors(w, uint2vc(sw), id_1, op_1);
 
         vector<unsigned char> L_1 = gm_hmac(v_px1.data(),v_px1.size(),v_k1.data(),v_k1.size(),f_len); //长度8
         vector<unsigned char> ks_1 = gm_hmac(v_px1.data(),v_px1.size(),v_k2.data(),v_k2.size(),f_len); //长度8
-        vector<unsigned char> L_1_ks_1 = concatenate_vectors(L_1, ks_1); //长度16
+        vector<unsigned char> L_1_ks_1 = concatVectors(L_1, ks_1); //长度16
         Iw = xor_encrypt_vc(HsR, L_1_ks_1);
     }
     lastID[w]=make_pair(id,op);
 
-    // com:client将Cwid=(L,Iw,Rw,Cw)发送给server,存入EDB
+    // com:client将Cwid=(L,Iw,Rw,Cw)发送给server,存入cipher_store
     vector<vector<unsigned char>> Cwid = {Iw, Rw, Cw};
-    EDB[L] = Cwid;
+    cipher_store[L] = Cwid;
 }
 
-void FPKS2E::batchupdate(char *update_dir, char op)
+void FPKS2EClient::update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op)
+{
+    vector<unsigned char> w=w_id.first;
+    vector<unsigned char> id=w_id.second;
+
+    vector<unsigned char> v_k1 = toByteVector(k1);
+    vector<unsigned char> v_k2 = toByteVector(k2);
+
+    // 1.client插入w到W
+    this->W.insert(w);
+
+    // 2.判断UC[w]是否为空,赋值uw,uw_1,sw
+    int uw_1=0; // 默认为空表示未更新过
+    if(UC.find(w)==UC.end()){
+        SC[w]=0;
+        UC[w]=0;
+    }
+    else{
+        uw_1=UC[w]; // 求上一次链尾的uw_1
+    }
+    int sw = SC[w];
+    UC[w]++;
+    int uw = UC[w];
+
+    // 3.计算中间量L,Rw,ks,Cw,Iw,L1,ks1
+    auto v_px = concatVectors(w, uint2vc(sw), uint2vc(uw));
+
+    vector<unsigned char> L = gm_hmac(v_px.data(),v_px.size(),v_k1.data(),v_k1.size(),f_len); // F即sha256_hmac
+    vector<unsigned char> Rw = gen_Rw(); //长度4
+    vector<unsigned char> ks = gm_hmac(v_px.data(),v_px.size(),v_k2.data(),v_k2.size(),f_len); //长度8
+
+    // 用id的vc形式替换Cw
+    vector<unsigned char> Cw = id;
+
+    // 判断上一次链尾的uw_1是否为0,计算Iw,L1,ks1
+    vector<unsigned char> Iw;
+    vector<unsigned char> HsR = gm_hmac(ks.data(),ks.size(),Rw.data(),Rw.size(),f_len*2); // H即sha256_hmac_v,长度16
+    if (uw_1 == 0){
+        // 如果为空则用零字节向量zero_head求Iw
+        vector<unsigned char> zero_head(f_len*2, 0);
+        Iw = xor_encrypt_vc(HsR, zero_head);
+    }
+    else{
+        // 如果不为空,则正常求L1,ks1,Iw
+        vector<unsigned char> v_px1 = concatVectors(w, uint2vc(sw), uint2vc(uw_1));
+
+        vector<unsigned char> L_1 = gm_hmac(v_px1.data(),v_px1.size(),v_k1.data(),v_k1.size(),f_len); //长度8
+        vector<unsigned char> ks_1 = gm_hmac(v_px1.data(),v_px1.size(),v_k2.data(),v_k2.size(),f_len); //长度8
+        vector<unsigned char> L_1_ks_1 = concatVectors(L_1, ks_1); //长度16
+        Iw = xor_encrypt_vc(HsR, L_1_ks_1);
+    }
+
+    vector<vector<unsigned char>> Cwid = {Iw, Rw, Cw};
+    cipher_store[L] = Cwid;
+}
+
+void FPKS2EClient::batchupdate(char *update_dir, vector<unsigned char> op, int version)
 {
     std::cout << "Updating FPKS2E data..." << std::endl;
     // 从文件读入DB
@@ -89,106 +150,81 @@ void FPKS2E::batchupdate(char *update_dir, char op)
     // 遍历Ulist中的每个关键字
     for (const auto& entry : Ulist) {
         string w = entry.first;         // 获取关键字
+        vector<unsigned char> v_w(w.begin(), w.end());
         vector<unsigned int> ids = entry.second;       // 获取对应的id集合
         for(auto &id:ids){
-            pair w_id = make_pair(w, id);
-            update(w_id, op);
+            auto v_id = uint2vc(id);
+            pair w_id = make_pair(v_w, v_id);
+            if(version==1){
+                update_1(w_id, op);
+            }
+            else if(version==2){
+                update_2(w_id, op);
+            }
         }
     }
-
-
 }
 
-// search 方法
-vector<unsigned int> FPKS2E::search(string w) {
-
-    // client
-
+int FPKS2EClient::trapdoor1(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks)
+{
     vector<unsigned char> v_k1 = toByteVector(k1);
     vector<unsigned char> v_k2 = toByteVector(k2);
-    // 判断SC[w]是否为空,空则之间返回空结果
-    vector<unsigned int> getRw; // 存储所有查询的id集合
+
+    L.clear();
+    ks.clear();
+
     if (SC.find(w) == SC.end()) {
-        return getRw;
+        string wstring(w.begin(),w.end());
+        cout<<"trapdoor gen failed,SC["+wstring+"] is empty!";
+        return 0;
     }
-    // 对于SC[w]非空,计算L和ks
-    vector<vector<unsigned char>> Tw; //存L和ks
+
     int sw = SC[w]; //当前关键字的查询次数,查询之后查询次数+1
     SC[w]++;
-    pair<unsigned int,char> id_op = lastID[w];
-    // set lastID[w] null
-    lastID[w] = pair<unsigned int, char>{0, '\0'};
-    unsigned id = id_op.first;
-    char op = id_op.second;
-    string px_str = w + to_string(sw) + to_string(id) + to_string(op);  // px = w||sw||id||op
-    const char* px = px_str.c_str();
-    vector<unsigned char> v_px = toByteVector(px);
+    pair<vector<unsigned char>, vector<unsigned char>> id_op = lastID[w];
 
-    vector<unsigned char> L = gm_hmac(v_px.data(),v_px.size(),v_k1.data(),v_k1.size(),f_len); //长度8
-    vector<unsigned char> ks = gm_hmac(v_px.data(),v_px.size(),v_k2.data(),v_k2.size(),f_len); //长度8
-    Tw.insert(Tw.end(),{L,ks});
+    // lastID[w] = pair<unsigned int, char>{0, '\0'}; // set lastID[w] null
 
-    // com:client将Tw发送给server
+    vector<unsigned char> id = id_op.first;
+    vector<unsigned char> op = id_op.second;
 
-    string Token_dir1 = "dataset/com/c2s_Tw.txt";
-    write_Token(Tw, Token_dir1);
-    vector<vector<unsigned char>> s_Tw = read_Token(Token_dir1);
+    auto v_px = concatVectors(w, uint2vc(sw), id ,op);
 
-    // server
-
-    // 解析Tw得到L和ks,初始化查询结果S
-    // 遍历EDB链,取出所有Cw存入S
-    vector<unsigned char> s_L = L; //长度4
-    vector<unsigned char> s_ks = ks; //长度4
-    vector<vector<unsigned char>> S; //存Cw
-    vector<unsigned char> zero_L(f_len, 0); //表示空,循环结束标志
-    while(s_L!=zero_L){
-        vector<unsigned char> Iw=EDB[s_L][0]; //长度8
-        vector<unsigned char> Rw=EDB[s_L][1];
-        vector<unsigned char> Cw=EDB[s_L][2]; //为id
-        vector<unsigned char> HsR = gm_hmac(s_ks.data(),s_ks.size(),Rw.data(),Rw.size(),f_len*2);
-        vector<unsigned char> L_1_ks_1 = xor_decrypt_vc(HsR, Iw); //长度8
-        vector<unsigned char> L_1; //长度4
-        vector<unsigned char> ks_1; //长度4
-        get_L_1_ks_1(L_1_ks_1, L_1, ks_1, f_len);
-        S.push_back(Cw);
-        EDB.erase(s_L); // 删除访问过的EDB条目
-        // update s_L s_ks
-        s_L=L_1;
-        s_ks=ks_1;
-    }
+    L = gm_hmac(v_px.data(),v_px.size(),v_k1.data(),v_k1.size(),f_len); //长度8
+    ks = gm_hmac(v_px.data(),v_px.size(),v_k2.data(),v_k2.size(),f_len); //长度8
     
-    // com:server将S发送给client
-
-    string Token_dir2 = "dataset/com/s2c_S.txt";
-    write_Token(S, Token_dir2);
-    vector<vector<unsigned char>> c_S = read_Token(Token_dir2);
-
-    // client
-
-    // 初始化原始结果R
-    vector<pair<unsigned int, char>> R;
-    // 从S中解密得到id||op存入R,合并得到Rw
-    for(auto &C:S){
-        unsigned int get_id = bytesToUint(C);
-        getRw.push_back(get_id);
-    }
-    // 函数返回Rw表示最终查询的id集合
-    return getRw;
+    return 0;
 }
 
-map<string,vector<unsigned int>> FPKS2E::batchsearch(vector<string> Wq)
+int FPKS2EClient::trapdoor2(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks)
 {
-    std::cout << "Performing FPKS2E search..." << std::endl;
-    search_result.clear(); // 清空search_result
-    for(auto &w:Wq){
-        vector<unsigned int> Rw = search(w);
-        search_result[w]=Rw;
+    vector<unsigned char> v_k1 = toByteVector(k1);
+    vector<unsigned char> v_k2 = toByteVector(k2);
+
+    L.clear();
+    ks.clear();
+
+    if (SC.find(w) == SC.end()) {
+        string wstring(w.begin(),w.end());
+        cout<<"trapdoor gen failed,SC["+wstring+"] is empty!";
+        return 0;
     }
-    return search_result;
+
+    // 求sw，uw，更新SC[w]
+    int sw = SC[w]; //当前关键字的查询次数,查询之后查询次数+1
+    SC[w]++;
+    int uw = UC[w];
+
+    auto v_px = concatVectors(w, uint2vc(sw), uint2vc(uw));  // px = w||sw||uw
+
+    // get L ks
+    L = gm_hmac(v_px.data(),v_px.size(),v_k1.data(),v_k1.size(),f_len); //长度8
+    ks = gm_hmac(v_px.data(),v_px.size(),v_k2.data(),v_k2.size(),f_len); //长度8
+
+    return 0;
 }
 
-void FPKS2E::search_output(map<string,vector<unsigned int>> search_result, const std::string& search_output_dir) {
+void FPKS2EClient::search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, const std::string& search_output_dir) {
     string file_path = search_output_dir;
     // 打开文件
     std::ofstream outfile(file_path);
@@ -198,8 +234,9 @@ void FPKS2E::search_output(map<string,vector<unsigned int>> search_result, const
     }
 
     for (const auto& entry : search_result) {
-        const std::string& w = entry.first;
-        const std::vector<unsigned int>& ids = entry.second;
+        vector<unsigned char> v_w = entry.first;
+        string w(v_w.begin(), v_w.end());
+        auto ids = entry.second;
         // 写入 w 和 id 信息
         outfile << "w: " << w << std::endl;
         outfile << "id:";
@@ -207,7 +244,8 @@ void FPKS2E::search_output(map<string,vector<unsigned int>> search_result, const
             outfile << " NULL" << endl;
             continue;
         }
-        for (unsigned int id : ids) {
+        for (auto v_id : ids) {
+            unsigned int id = vc2uint(v_id);
             outfile << " " << id; // 每个 id 之间空格
         }
         outfile << std::endl;
@@ -219,11 +257,11 @@ void FPKS2E::search_output(map<string,vector<unsigned int>> search_result, const
     cout<<"查询结果已写入"<<search_output_dir<<endl;
 }
 
-vector<string> FPKS2E::gen_set_query(set<string> &W, size_t size_query) {
-    vector<string> set_query;
+vector<vector<unsigned char>> FPKS2EClient::gen_set_query(set<vector<unsigned char>> &W, size_t size_query){
+    vector<vector<unsigned char>> set_query;
 
     // 1. 将 set<string> 转换为 vector<string>，方便进行随机选择
-    std::vector<std::string> temp(W.begin(), W.end());
+    std::vector<vector<unsigned char>> temp(W.begin(), W.end());
 
     // 2. 使用随机数生成器来打乱 vector<string>
     std::random_device rd;
@@ -238,7 +276,7 @@ vector<string> FPKS2E::gen_set_query(set<string> &W, size_t size_query) {
     return set_query;
 }
 
-vector<unsigned char> FPKS2E::gen_Rw() {
+vector<unsigned char> FPKS2EClient::gen_Rw() {
     // 初始化随机数生成器
     std::srand(std::time(0));  // 用当前时间作为种子
 
@@ -252,3 +290,76 @@ vector<unsigned char> FPKS2E::gen_Rw() {
 
     return Rw;
 }
+
+vector<vector<unsigned char>> FPKS2EClient::dec_result(vector<vector<unsigned char>> S)
+{
+    vector<vector<unsigned char>> getR;
+    for(auto &C:S){
+        getR.push_back(C);
+    }
+    return getR;
+}
+
+void FPKS2EClient::batch_dec(map<vector<unsigned char>, vector<vector<unsigned char>>> Ss)
+{
+    this->search_result.clear();
+
+    for (const auto& entry : Ss) {
+        vector<unsigned char> w = entry.first;         // 获取关键字
+        vector<vector<unsigned char>> S = entry.second;       // 获取对应的id集合
+        vector<vector<unsigned char>> ids = dec_result(S);
+        this->search_result[w] = ids;
+    }
+}
+
+void FPKS2EServer::setup()
+{
+    std::cout << "Setting up FPKS2E Server..." << std::endl;
+}
+
+void FPKS2EServer::init_key(const char key1[keylen], const char key2[keylen])
+{
+    memcpy(k1, key1, keylen);
+    memcpy(k2, key2, keylen);
+}
+
+void FPKS2EServer::reset_cipher_store()
+{
+    cipher_store.clear();
+}
+
+// search 方法
+vector<vector<unsigned char>> FPKS2EServer::search(vector<unsigned char> L, vector<unsigned char> ks) 
+{
+    vector<unsigned char> s_L = L; //长度4
+    vector<unsigned char> s_ks = ks; //长度4
+    vector<vector<unsigned char>> S; //存Cw
+    vector<unsigned char> zero_L(f_len, 0); //表示空,循环结束标志
+    while(s_L!=zero_L){
+        vector<unsigned char> Iw=cipher_store[s_L][0]; //长度8
+        vector<unsigned char> Rw=cipher_store[s_L][1];
+        vector<unsigned char> Cw=cipher_store[s_L][2]; //为id
+        vector<unsigned char> HsR = gm_hmac(s_ks.data(),s_ks.size(),Rw.data(),Rw.size(),f_len*2);
+        vector<unsigned char> L_1_ks_1 = xor_decrypt_vc(HsR, Iw); //长度8
+        vector<unsigned char> L_1; //长度4
+        vector<unsigned char> ks_1; //长度4
+        get_L_1_ks_1(L_1_ks_1, L_1, ks_1, f_len);
+        S.push_back(Cw);
+        // update s_L s_ks
+        s_L=L_1;
+        s_ks=ks_1;
+    }
+
+    return S;
+}
+
+void FPKS2EServer::copy_cipher_store(map<vector<unsigned char>, vector<vector<unsigned char>>> store_in)
+{
+    this->cipher_store.clear();
+
+    this->cipher_store=store_in;
+}
+
+
+
+

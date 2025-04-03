@@ -18,20 +18,75 @@ int main() {
 
     // Phrase1.Setup
     cout<<"---|Phrase1:Setup|---"<<endl;
-    FPKS2E fp;
-    fp.setup();
+    FPKS2EClient c;
+    FPKS2EServer s;
 
-    // Phrase2.Update
-    cout<<"---|Phrase2:Update|---"<<endl;
-    char op[2] = {'0','0'};// client分为2次批量更新add,add
-    fp.batchupdate(update_dir1,op[0]);
-    fp.batchupdate(update_dir2,op[1]);
+    c.setup();
+    s.setup();
 
-    // Phrase3.Search
-    cout<<"---|Phrase3:Search|---"<<endl;
-    vector<string> Wq = fp.gen_set_query(fp.W, fp.size_search);
-    map<string,vector<unsigned int>> search_result = fp.batchsearch(Wq);
-    fp.search_output(search_result, "result/search_output.txt");
+    // Phrase2.Update1
+    cout<<"---|Phrase2:Update1|---"<<endl;
+    vector<vector<unsigned char>> op = {{'0'}, {'0'}}; // client分为2次批量更新add,add
+
+    c.batchupdate(update_dir1,op[0],1);
+    c.batchupdate(update_dir2,op[1],1);
+
+    s.copy_cipher_store(c.cipher_store);
+
+    // Phrase3.Search1
+    cout<<"---|Phrase3:Search1|---"<<endl;
+    vector<vector<unsigned char>> Wq = c.gen_set_query(c.W, c.size_query);
+
+    map<vector<unsigned char>, vector<vector<unsigned char>>> Ss;
+
+    for(auto w:Wq) {
+        
+        vector<unsigned char> L;
+        vector<unsigned char> ks;
+        c.trapdoor1(w, L, ks);
+        
+        vector<vector<unsigned char>> S= s.search(L, ks);
+
+        Ss[w] = S;
+    }
+
+    c.batch_dec(Ss);
+
+    map<vector<unsigned char>,vector<vector<unsigned char>>> result=c.search_result;
+
+    c.search_output(result, "result/search1_output.txt");
+
+    // Phrase4.Update2
+    cout<<"---|Phrase4:Update2|---"<<endl;
+    c.reset_cipher_store();
+
+    c.batchupdate(update_dir1,op[0],2);
+    c.batchupdate(update_dir2,op[1],2);
+
+    s.copy_cipher_store(c.cipher_store);
+
+    // Phrase5.Search2
+    cout<<"---|Phrase5:Search2|---"<<endl;
+    Wq = c.gen_set_query(c.W, c.size_query);
+
+    Ss.clear();
+
+    for(auto w:Wq) {
+        vector<unsigned char> L;
+        vector<unsigned char> ks;
+        c.trapdoor2(w, L, ks);
+        
+        vector<vector<unsigned char>> S= s.search(L, ks);
+
+        Ss[w] = S;
+    }
+
+    c.batch_dec(Ss);
+
+    result=c.search_result;
+
+    c.search_output(result, "result/search2_output.txt");
+
 
     cout<<"---|Simple-KS2E Protocol Finished|---"<<endl;
 

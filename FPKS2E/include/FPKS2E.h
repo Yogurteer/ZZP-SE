@@ -3,79 +3,87 @@
 
 #include "utils.h"
 #include "encrypt.h"
-#include "com.h"
 
 # define f_len 8
+# define key_len 32
 
 using namespace std;
 
-class FPKS2E {
+class FPKS2EClient {
 public:
 
     // key
-    static const size_t keylen = 32;
+    static const size_t keylen = key_len;
     char k1[keylen];
     char k2[keylen];
 
     // state
-    map<string,pair<unsigned int,char>> lastID; // 记录每个w的上一次链尾的id_op
-    map<string,int> SC; // 记录每个w的查询批次
-    set<string> W; // 记录出现过的W空间
+    map<vector<unsigned char>,pair<vector<unsigned char>,vector<unsigned char>>> lastID; // 记录每个w的上一次链尾的id_op
+    map<vector<unsigned char>,unsigned int> SC; // 记录每个w的查询批次
+    map<vector<unsigned char>,unsigned int> UC; // 记录每个w的更新批次
+    set<vector<unsigned char>> W; // 记录出现过的W空间
 
-    // client
-    uint size_search = 3; //单次查询的关键字个数
-    map<string,vector<unsigned int>> search_result;
+    // query
+    uint size_query = 3; //单次查询的关键字个数
+    map<vector<unsigned char>,vector<vector<unsigned char>>> search_result;
 
-    // server EDB中键是L,值是<Iw,Rw,Cw>
-    map<vector<unsigned char>, vector<vector<unsigned char>>> EDB;
+    // client cipher_store中键是L,值是<Iw,Rw,Cw>
+    map<vector<unsigned char>, vector<vector<unsigned char>>> cipher_store;
 
-    FPKS2E();
-    ~FPKS2E();
+    FPKS2EClient()= default;
+    ~FPKS2EClient()= default;
 
-    /**
-     * @brief initial key
-     * 
-     */
     void setup();
 
+    void init_key(const char key1[keylen], const char key2[keylen]);
+
+    void reset_state();
+
     /**
-     * @brief 倒排索引加密w_id更新到EDB
+     * @brief reset cipher_store
+     * 
+     */
+    void reset_cipher_store();
+
+    /**
+     * @brief 加密w_id更新到cipher_store,更新lastID[w]
      * 
      * @param w_id 
      * @param op 
      */
-    void update(pair<string,unsigned int> w_id, char op);
+    void update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op);
+
+    /**
+     * @brief 加密w_id更新到cipher_store,更新UC[w]
+     * 
+     * @param w_id 
+     * @param op 
+     */
+    void update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op);
 
     /**
      * @brief batch update
      * 
      * @param update_dir 
      * @param op 
+     * @param version 
      */
-    void batchupdate(char *update_dir, char op);
+    void batchupdate(char *update_dir, vector<unsigned char> op, int version);
 
-    /**
-     * @brief 从链尾开始查询w
-     * 
-     * @param w 
-     * @return vector<unsigned int> 
-     */
-    vector<unsigned int> search(string w);
+    int trapdoor1(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks);
 
-    /**
-     * @brief batch search
-     * 
-     * @param Wq 
-     * @return map<string,vector<unsigned int>> 
-     */
-    map<string,vector<unsigned int>> batchsearch(vector<string> Wq);
+    int trapdoor2(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks);
+
+    vector<vector<unsigned char>> dec_result(vector<vector<unsigned char>> S);
+
+    void batch_dec(map<vector<unsigned char>, vector<vector<unsigned char>>> Ss);
 
     /**
      * @brief output search result to file
      * 
      * @param search_output_dir 
      */
-    void search_output(map<string,vector<unsigned int>> search_result, const std::string& search_output_dir);
+    void search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, const std::string& search_output_dir);
 
     /**
      * @brief randomly select size_query keywords from W
@@ -84,7 +92,7 @@ public:
      * @param size_query 
      * @return vector<string> 
      */
-    vector<string> gen_set_query(set<string> &W, size_t size_query);
+    vector<vector<unsigned char>> gen_set_query(set<vector<unsigned char>> &W, size_t size_query);
 
     /**
      * @brief randomly gen Rw
@@ -94,4 +102,41 @@ public:
     vector<unsigned char> gen_Rw();
 };
 
-#endif
+class FPKS2EServer {
+public:
+
+    // key
+    static const size_t keylen = key_len;
+    char k1[keylen];
+    char k2[keylen];
+
+    // client cipher_store
+    map<vector<unsigned char>, vector<vector<unsigned char>>> cipher_store;
+
+    FPKS2EServer()= default;
+    ~FPKS2EServer()= default;
+
+    void setup();
+
+    void init_key(const char key1[keylen], const char key2[keylen]);
+
+    /**
+     * @brief reset cipher_store
+     * 
+     */
+    void reset_cipher_store();
+
+    /**
+     * @brief search server
+     * 
+     * @param L 
+     * @param ks 
+     * @return vector<vector<unsigned char>> 
+     */
+    vector<vector<unsigned char>> search(vector<unsigned char> L, vector<unsigned char> ks);
+
+
+    void copy_cipher_store(map<vector<unsigned char>, vector<vector<unsigned char>>> store_in);
+};
+
+#endif // FPKS2E_H

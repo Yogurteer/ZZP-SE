@@ -1,5 +1,4 @@
-#ifndef ENCRYPT_H
-#define ENCRYPT_H
+#pragma once
 
 #include "utils.h"
 
@@ -59,23 +58,11 @@ std::vector<unsigned char> sha256_hmac(const unsigned char *data, size_t data_le
                                        const unsigned char *key, size_t key_len,size_t len);
 
 /**
- * @brief xor enc
+ * @brief xor，输出长度等于数据长度而不是密钥长度
  * 
- * @param plaintext 
+ * @param data
  * @param key 
  * @return std::vector<unsigned char> 
  */
-std::vector<unsigned char> xor_encrypt_vc(const std::vector<unsigned char>& plaintext,
-                                          const std::vector<unsigned char>& key);
-
-/**
- * @brief xor dec
- * 
- * @param ciphertext 
- * @param key 
- * @return std::vector<unsigned char> 
- */
-std::vector<unsigned char> xor_decrypt_vc(const std::vector<unsigned char>& ciphertext,
-                                          const std::vector<unsigned char>& key);
-
-#endif // ENCRYPT_H
+std::vector<unsigned char> my_xor(const std::vector<unsigned char>& data,
+                               const std::vector<unsigned char>& key);
