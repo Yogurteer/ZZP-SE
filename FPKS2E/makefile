@@ -4,10 +4,11 @@
 CXX = g++
 
 # 头文件搜索路径
-INCLUDE_DIRS = -I. -Iinclude -Iutils
+INCLUDE_DIRS = -I. -Iinclude -Iutils -I/usr/include
+
 
 # 设置 Conda 环境中的 OpenSSL 库路径
-OPENSSL_DIR = /root/miniconda3/envs/Lr-env
+OPENSSL_DIR = /root/miniconda3/envs/cenv
 OPENSSL_LIB = $(OPENSSL_DIR)/lib
 OPENSSL_INC = $(OPENSSL_DIR)/include
 

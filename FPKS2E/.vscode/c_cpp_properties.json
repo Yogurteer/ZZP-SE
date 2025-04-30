@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/root/miniconda3/envs/Lr-env/**"
+                "/root/miniconda3/envs/cenv/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",

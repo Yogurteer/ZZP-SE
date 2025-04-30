@@ -51,7 +51,7 @@ public:
      * @param w_id 
      * @param op 
      */
-    void update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op);
+    void update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op, vector<vector<unsigned char>>& Cwid);
 
     /**
      * @brief 加密w_id更新到cipher_store,更新UC[w]
@@ -59,16 +59,7 @@ public:
      * @param w_id 
      * @param op 
      */
-    void update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op);
-
-    /**
-     * @brief batch update
-     * 
-     * @param update_dir 
-     * @param op 
-     * @param version 
-     */
-    void batchupdate(char *update_dir, vector<unsigned char> op, int version);
+    void update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op, vector<vector<unsigned char>>& Cwid);
 
     int trapdoor1(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks);
 
@@ -125,6 +116,8 @@ public:
      * 
      */
     void reset_cipher_store();
+
+    void re_update(vector<vector<unsigned char>>& Cwid);
 
     /**
      * @brief search server

@@ -24,7 +24,7 @@ void FPKS2EClient::reset_cipher_store()
     this->cipher_store.clear();
 }
 
-void FPKS2EClient::update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op){
+void FPKS2EClient::update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op, vector<vector<unsigned char>>& Cwid){
     vector<unsigned char> w=w_id.first;
     vector<unsigned char> id=w_id.second;
 
@@ -78,11 +78,11 @@ void FPKS2EClient::update_1(pair<vector<unsigned char>,vector<unsigned char>> w_
     lastID[w]=make_pair(id,op);
 
     // com:client将Cwid=(L,Iw,Rw,Cw)发送给server,存入cipher_store
-    vector<vector<unsigned char>> Cwid = {Iw, Rw, Cw};
-    cipher_store[L] = Cwid;
+    Cwid.clear();
+    Cwid = {L, Iw, Rw, Cw};
 }
 
-void FPKS2EClient::update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op)
+void FPKS2EClient::update_2(pair<vector<unsigned char>,vector<unsigned char>> w_id, vector<unsigned char> op, vector<vector<unsigned char>>& Cwid)
 {
     vector<unsigned char> w=w_id.first;
     vector<unsigned char> id=w_id.second;
@@ -134,35 +134,8 @@ void FPKS2EClient::update_2(pair<vector<unsigned char>,vector<unsigned char>> w_
         Iw = xor_encrypt_vc(HsR, L_1_ks_1);
     }
 
-    vector<vector<unsigned char>> Cwid = {Iw, Rw, Cw};
-    cipher_store[L] = Cwid;
-}
-
-void FPKS2EClient::batchupdate(char *update_dir, vector<unsigned char> op, int version)
-{
-    std::cout << "Updating FPKS2E data..." << std::endl;
-    // 从文件读入DB
-    map<string, vector<unsigned int>> Ulist;
-    Ulist.clear(); // 清空Ulist
-    cout << "Update Dataset source dir: " << update_dir << endl;
-    read_keywords(update_dir, Ulist);
-
-    // 遍历Ulist中的每个关键字
-    for (const auto& entry : Ulist) {
-        string w = entry.first;         // 获取关键字
-        vector<unsigned char> v_w(w.begin(), w.end());
-        vector<unsigned int> ids = entry.second;       // 获取对应的id集合
-        for(auto &id:ids){
-            auto v_id = uint2vc(id);
-            pair w_id = make_pair(v_w, v_id);
-            if(version==1){
-                update_1(w_id, op);
-            }
-            else if(version==2){
-                update_2(w_id, op);
-            }
-        }
-    }
+    Cwid = {L, Iw, Rw, Cw};
+    // cipher_store[L] = Cwid;
 }
 
 int FPKS2EClient::trapdoor1(vector<unsigned char> w, vector<unsigned char>& L, vector<unsigned char>& ks)
@@ -326,6 +299,16 @@ void FPKS2EServer::init_key(const char key1[keylen], const char key2[keylen])
 void FPKS2EServer::reset_cipher_store()
 {
     cipher_store.clear();
+}
+
+void FPKS2EServer::re_update(vector<vector<unsigned char>> &Cwid)
+{
+    vector<unsigned char> L = Cwid[0]; //长度8
+    vector<unsigned char> Iw = Cwid[1]; //长度8
+    vector<unsigned char> Rw = Cwid[2]; //长度4
+    vector<unsigned char> Cw = Cwid[3]; //长度4
+
+    this->cipher_store[L] = {Iw, Rw, Cw};
 }
 
 // search 方法

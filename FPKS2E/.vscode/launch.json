@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug main",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/main",
+            "args": [
+                  "all",
+                  "LDFLAGS=-L/root/miniconda3/envs/cenv/lib"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                  {
+                      "name": "LD_LIBRARY_PATH",
+                      "value": "/root/miniconda3/envs/cenv/lib"
+                  },
+                  {
+                      "name": "CXXFLAGS",
+                      "value": "-I/root/miniconda3/envs/cenv/include"
+                  }
+              ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "启用 gdb 的漂亮打印功能",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "make build"
+        }
+    ]
+  }
+  

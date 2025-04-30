@@ -3,6 +3,38 @@
 
 using namespace std;
 
+void batchupdate(FPKS2EClient& c, FPKS2EServer& s, char *update_dir, vector<unsigned char> op, int version)
+{
+    std::cout << "Updating FPKS2E data..." << std::endl;
+    // 从文件读入DB
+    map<string, vector<unsigned int>> Ulist;
+    Ulist.clear(); // 清空Ulist
+    cout << "Update Dataset source dir: " << update_dir << endl;
+    read_keywords(update_dir, Ulist);
+
+    // 遍历Ulist中的每个关键字
+    for (const auto& entry : Ulist) {
+        string w = entry.first;         // 获取关键字
+        vector<unsigned char> v_w(w.begin(), w.end());
+        vector<unsigned int> ids = entry.second;       // 获取对应的id集合
+        for(auto &id:ids){
+            auto v_id = uint2vc(id);
+            pair w_id = make_pair(v_w, v_id);
+
+            vector<vector<unsigned char>> Cwid = {};
+
+            if(version==1){
+                c.update_1(w_id, op, Cwid);
+            }
+            else if(version==2){
+                c.update_2(w_id, op, Cwid);
+            }
+            // server receive and update
+            s.re_update(Cwid);
+        }
+    }
+}
+
 int main() {
 
     cout<<"---|Simple-KS2E Protocol Processing|---"<<endl;
@@ -28,10 +60,8 @@ int main() {
     cout<<"---|Phrase2:Update1|---"<<endl;
     vector<vector<unsigned char>> op = {{'0'}, {'0'}}; // client分为2次批量更新add,add
 
-    c.batchupdate(update_dir1,op[0],1);
-    c.batchupdate(update_dir2,op[1],1);
-
-    s.copy_cipher_store(c.cipher_store);
+    batchupdate(c, s, update_dir1, op[0], 1);
+    batchupdate(c, s, update_dir2, op[1], 1);
 
     // Phrase3.Search1
     cout<<"---|Phrase3:Search1|---"<<endl;
@@ -40,9 +70,9 @@ int main() {
     map<vector<unsigned char>, vector<vector<unsigned char>>> Ss;
 
     for(auto w:Wq) {
-        
         vector<unsigned char> L;
         vector<unsigned char> ks;
+
         c.trapdoor1(w, L, ks);
         
         vector<vector<unsigned char>> S= s.search(L, ks);
@@ -59,11 +89,10 @@ int main() {
     // Phrase4.Update2
     cout<<"---|Phrase4:Update2|---"<<endl;
     c.reset_cipher_store();
+    s.reset_cipher_store();
 
-    c.batchupdate(update_dir1,op[0],2);
-    c.batchupdate(update_dir2,op[1],2);
-
-    s.copy_cipher_store(c.cipher_store);
+    batchupdate(c, s, update_dir1, op[0], 2);
+    batchupdate(c, s, update_dir2, op[0], 2);
 
     // Phrase5.Search2
     cout<<"---|Phrase5:Search2|---"<<endl;
@@ -74,6 +103,7 @@ int main() {
     for(auto w:Wq) {
         vector<unsigned char> L;
         vector<unsigned char> ks;
+
         c.trapdoor2(w, L, ks);
         
         vector<vector<unsigned char>> S= s.search(L, ks);

@@ -1,31 +1,33 @@
 {
-    "version": "2.0.0",  // ✅ 添加版本号
+    "version": "2.0.0",
     "tasks": [
         {
-            "label": "C++ Build & Run",
+            "label": "make build",
             "type": "shell",
-            "command": "g++",
+            "command": "make",
             "args": [
-                "-g",
-                "${file}",
-                "-o",
-                "${fileDirname}/${fileBasenameNoExtension}.exe"
+                "all"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"],
-            "detail": "Generated task for building C++ files"
+            "problemMatcher": ["$gcc"],  // 更改这里
+            "detail": "调用 Makefile 进行项目的构建"
         },
         {
-            "label": "Run Executable",
+            "label": "make run",
             "type": "shell",
-            "command": "${fileDirname}/${fileBasenameNoExtension}.exe",
+            "command": "make",
+            "args": [
+                "run"
+            ],
             "group": {
-                "kind": "test",
-                "isDefault": true
-            }
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": ["$gcc"],  // 更改这里
+            "detail": "调用 Makefile 进行运行"
         }
     ]
 }
