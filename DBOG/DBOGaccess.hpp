@@ -12,8 +12,6 @@
 #include <sstream>
 #include <algorithm>
 
-#define BYTE_SIZE 16 // 每个字节向量的长度
-
 using namespace std;
 
 inline std::string toHexString(const std::vector<uint8_t>& data) {
@@ -78,8 +76,7 @@ public:
         conn = PQconnectdb(conninfo);
         if (PQstatus(conn) != CONNECTION_OK)
         {
-            fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
+            fprintf(stderr, "Connection to database failed: %s",PQerrorMessage(conn));
             exit_nicely(conn);
         }
     }
@@ -87,12 +84,12 @@ public:
         PQfinish(conn);
     }
 
-    PGresult* exceSQL(vector<vector<uint8_t>>& params, const char* command) {
-        std::cout << "SQL Command:\n" << command << std::endl;
+    PGresult* exceSQL(vector<vector<uint8_t>>& params, const char* command, int paramformat = 1, int resultformat = 1) {
+        // std::cout << "SQL Command:\n" << command << std::endl;
         PGresult* res;
         if(params.empty()) {
-            res = PQexec(conn, command);
-            // res = PQexecParams(conn, command, 0, NULL, NULL, NULL, NULL, 1);
+            // res = PQexec(conn, command);
+            res = PQexecParams(conn, command, 0, NULL, NULL, NULL, NULL, resultformat);
         }
         else{
             // 获取字节向量的数量
@@ -102,14 +99,14 @@ public:
             int paramLengths[n];
             int paramFormats[n];
             // 初始化 paramFormats 数组，将所有参数都设置为二进制格式
-            std::fill(paramFormats, paramFormats + n, 1); // 所有参数都设置为二进制格式
+            std::fill(paramFormats, paramFormats + n, paramformat); // 所有参数都设置为二进制格式
             // 遍历 params，为每个字节向量设置对应的参数
             for (size_t i = 0; i < n; ++i) {
                 paramValues[i] = (const char*)params[i].data(); // 获取字节向量的数据指针
                 paramLengths[i] = params[i].size();            // 获取字节向量的大小（长度）
             }
             // 执行 SQL 命令，插入一行记录
-            res = PQexecParams(conn, command, n, NULL, paramValues, paramLengths, paramFormats, 1);
+            res = PQexecParams(conn, command, n, NULL, paramValues, paramLengths, paramFormats, resultformat);
         }
 
         // 检查执行结果
@@ -120,7 +117,7 @@ public:
             exit_nicely(conn);
         }
 
-        cout<<"exceed SQL successfully."<<endl;
+        // cout<<"exceed SQL successfully."<<endl;
 
         return res;
     }
@@ -129,56 +126,69 @@ public:
     void createTable(const char* command) {
         vector<vector<uint8_t>> params; // 空的二维字节向量
         PGresult* res = exceSQL(params, command);
+        cout << "Table created successfully." << endl;
         // 清理结果
         PQclear(res);
     }
 
     // eg: "INSERT INTO your_table (vol1, vol2, vol3) VALUES ($1, $2, $3) ON CONFLICT (vol1) DO NOTHING;"
-    void writeData(vector<vector<uint8_t>>& datavecs, const char* command) {
+    void writeData(vector<vector<uint8_t>>& datavecs, const char* command, int paramformat = 1) {
         PGresult* res = exceSQL(datavecs, command);
+        cout << "Data inserted successfully." << endl;
         // 清理结果
         PQclear(res);
     }
 
     // eg: "SELECT vol1,vol2,vol3 FROM your_table WHERE v1 = $1;"
-    std::vector<std::vector<uint8_t>> readData(vector<vector<uint8_t>>& query_data, const char* command) {
-        std::vector<std::vector<uint8_t>> datavecs; // 用于存储查询结果的二维字节向量
+    vector<vector<vector<uint8_t>>> readData(PGresult*& res, vector<vector<uint8_t>>& query_data, const char* command, int paramformat = 1, int resultformat = 1) {
+        vector<vector<vector<uint8_t>>> query_outputs; // 用于存储查询结果的三维字节向量
+        vector<vector<uint8_t>> row_data; // 用于存储每一行的字节向量
 
-        PGresult* res = exceSQL(query_data, command);
+        res = exceSQL(query_data, command, resultformat);
 
         // 检查返回的行数是否为 1
         int rowCount = PQntuples(res);
-        if (rowCount != 1) {
-            fprintf(stderr, "Expected exactly one row, but got %d rows\n", rowCount);
+        if (rowCount == 0) {
+            fprintf(stderr, "Failed!Query get 0 rows");
             PQclear(res);
             exit_nicely(conn);
         }
-        // 获取当前行的每一列数据
-        int colCount = PQnfields(res);
-        for (int col = 0; col < colCount; ++col) {
-            // 获取当前列的值
-            char* value = PQgetvalue(res, 0, col);
-            // 将列值转存为 std::vector<uint8_t>
-            std::vector<uint8_t> result(value, value + PQgetlength(res, 0, col));
-            // 将当前列的字节向量添加到结果中
-            datavecs.push_back(result);
+
+        cout << "Query returned " << rowCount << " row(s)." << endl;
+        // 获取第一行的每一列数据
+        int rows = PQntuples(res);
+        int cols = PQnfields(res);
+        for (int row = 0; row < rows; ++row) {
+            // 清空当前行的数据
+            row_data.clear();
+            // 遍历每一列
+            for (int col = 0; col < cols; ++col) {
+                // 获取当前列的值
+                char* value = PQgetvalue(res, row, col);
+                // 将列值转存为 std::vector<uint8_t>
+                std::vector<uint8_t> result(value, value + PQgetlength(res, row, col));
+                // 将当前列的字节向量添加到当前行数据中
+                row_data.push_back(result);
+            }
+            // 将当前行数据添加到结果中
+            query_outputs.push_back(row_data);
         }
-        // 清理结果
-        PQclear(res);
-        // 返回最终的二维字节向量
-        return datavecs;
+        // 返回最终的三维字节向量
+        return query_outputs;
     }
 
     // eg: "UPDATE your_table SET vol2 = $1 WHERE vol1 = $2;"
-    void alterData(vector<vector<uint8_t>>& datavecs, const char* command){
+    void alterData(vector<vector<uint8_t>>& datavecs, const char* command, int paramformat = 1){
         PGresult* res = exceSQL(datavecs, command);
+        cout << "Data updated successfully." << endl;
         // 清理结果
         PQclear(res);
     }
 
     // eg: "DELETE FROM your_table WHERE vol1 = $1;"
-    void deleteData(vector<vector<uint8_t>>& datavecs, const char* command){
+    void deleteData(vector<vector<uint8_t>>& datavecs, const char* command, int paramformat = 1){
         PGresult* res = exceSQL(datavecs, command);
+        cout << "Data deleted successfully." << endl;
         // 清理结果
         PQclear(res);
     }
