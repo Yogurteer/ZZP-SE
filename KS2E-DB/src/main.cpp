@@ -7,9 +7,7 @@ using namespace std;
 
 int main() {
 
-    // 当前版本由于导入的是map<w,<id>>,w不允许重复,所以暂时w与id互换属性
-
-    cout<<"---|KS2E Protocol Test Processing|---"<<endl;
+    cout<<"---|KS2E Protocol Local Test Processing|---"<<endl;
 
     auto start_time = getCurrentTime();
 
