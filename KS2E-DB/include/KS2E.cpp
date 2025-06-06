@@ -127,6 +127,9 @@ void KS2EClient::update_1(pair<vector<unsigned char>,vector<unsigned char>> w_id
     st.lastID[w] = id;
 
     // client将Cwid存入cipher_store,理论上把Cwid发给server
+    // cout<<"in client,L: "<<L.size()<<endl;
+    // cout<<"Iw: "<<Iw.size()<<" Rw: "<<Rw.size()<<" Cw: "<<Cw.size()<<endl;
+    // cout<<"Iid: "<<Iid.size()<<" Rid: "<<Rid.size()<<" Cid: "<<Cid.size()<<endl;
     Cwid = make_pair(L, cipher{Iw, Rw, Cw, Iid, Rid, Cid});
 }
 
@@ -380,14 +383,29 @@ void KS2EServer::reset_cipher_store()
     this->cipher_store_u.clear();
 }
 
-void KS2EServer::re_o_update(pair<vector<unsigned char>, cipher> Cwid)
+void KS2EServer::re_o_update(pair<vector<unsigned char>, cipher> Cwid, DBOGaccess& db1)
 {
     auto L = Cwid.first;
     auto c = Cwid.second;
-    cipher_store_o[L] = c;
+    // cipher_store_o[L] = c;
+
+    //update location,mw,mid to server
+    auto Iid = c.Iid;
+    auto Rid = c.Rid;
+    auto Cid = c.Cid;
+    auto Iw = c.Iw;
+    auto Rw = c.Rw;
+    auto Cw = c.Cw;
+
+    vector<unsigned char> location = L;
+    
+    std::vector<std::vector<uint8_t>> params = {location, Iid, Rid, Cid, Iw, Rw, Cw};
+
+    const char *command = "insert into encrypted_index_table (location, iid, rid, cid, iw, rw, cw) values ($1, $2, $3, $4, $5, $6, $7);";
+    db1.writeData(params, command, 1);
 }
 
-void KS2EServer::re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<unsigned char>> &S)
+void KS2EServer::re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<unsigned char>> &S, DBOGaccess& db1)
 {
     auto L = Dw[0];
     auto Jw = Dw[1];
@@ -396,11 +414,21 @@ void KS2EServer::re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<un
 
     vector<unsigned char> zero_L(f_len, 0); //表示空
 
+    string table_name = "encrypted_index_table";
+    PGresult* res;
+
     while(L!=zero_L){
-        cipher c = this->cipher_store_o.at(L);
-        auto Iw = c.Iw;
-        auto Rw = c.Rw;
-        auto Cw = c.Cw;
+        // cipher c = this->cipher_store_o.at(L);
+
+        // get mw from DB
+        vector<vector<unsigned char>> params = {L};
+        string query = "select iw,rw,cw from "+table_name+" where location = $1";
+
+        vector<vector<vector<unsigned char>>>res_mw =  db1.readData(res, params, query.c_str(), 1);
+
+        auto Iw = res_mw[0][0];
+        auto Rw = res_mw[0][1];
+        auto Cw = res_mw[0][2];
 
         vector<unsigned char> HJR = gm_hmac(Jw.data(),Jw.size(),Rw.data(),Rw.size(),f_len*2);
         vector<unsigned char> L_1_Jw_1 = my_xor(Iw, HJR);
@@ -412,18 +440,29 @@ void KS2EServer::re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<un
         L = L_1;
         Jw = Jw_1;
     }
+
+    // 清理
+    if (res != nullptr) {
+        PQclear(res);
+    }
 }
 
-void KS2EServer::re_share_w_2(map<vector<unsigned char>, cipher> S_1)
+void KS2EServer::re_share_w_2(map<vector<unsigned char>, cipher> S_1, DBOGaccess& db1)
 {
     for(auto &pair:S_1){
         auto L = pair.first;
         auto c = pair.second;
-        cipher_store_u[L] = c;
+        // cipher_store_u[L] = c;
+
+        // push <L,c> to edb-user
+        std::vector<std::vector<uint8_t>> params = {L, c.Iid, c.Rid, c.Cid, c.Iw, c.Rw, c.Cw};
+
+        const char *command = "insert into encrypted_index_table_user (location, iid, rid, cid, iw, rw, cw) values ($1, $2, $3, $4, $5, $6, $7);";
+        db1.writeData(params, command, 1);
     }
 }
 
-void KS2EServer::re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<unsigned char>> &S)
+void KS2EServer::re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<unsigned char>> &S, DBOGaccess& db1)
 {
     auto L = Did[0];
     auto Jid = Did[1];
@@ -432,11 +471,23 @@ void KS2EServer::re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<
 
     vector<unsigned char> zero_L(f_len, 0); //表示空
 
+    string table_name = "encrypted_index_table";
+    PGresult* res;
+
     while(L!=zero_L){
-        cipher c = this->cipher_store_o.at(L);
-        auto Iid = c.Iid;
-        auto Rid = c.Rid;
-        auto Cid = c.Cid;
+        // cipher c = this->cipher_store_o.at(L);
+
+        // get mid from DB
+        vector<vector<unsigned char>> params = {L};
+        string query = "select iid,rid,cid from "+table_name+" where location = $1";
+
+        vector<vector<vector<unsigned char>>>res_mid =  db1.readData(res, params, query.c_str(), 1);
+        // get res cols
+        // cout<<"cols: "<<PQnfields(res)<<endl;
+    
+        auto Iid = res_mid[0][0];
+        auto Rid = res_mid[0][1];
+        auto Cid = res_mid[0][2];
 
         vector<unsigned char> HJR = gm_hmac(Jid.data(),Jid.size(),Rid.data(),Rid.size(),f_len*2);
         vector<unsigned char> L_1_Jid_1 = my_xor(Iid, HJR);
@@ -448,25 +499,35 @@ void KS2EServer::re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<
         L = L_1;
         Jid = Jid_1;
     }
+
+    // 清理
+    if (res != nullptr) {
+        PQclear(res);
+    }
 }
 
-void KS2EServer::re_share_id_2(map<vector<unsigned char>, cipher> S_1)
+void KS2EServer::re_share_id_2(map<vector<unsigned char>, cipher> S_1, DBOGaccess& db1)
 {
     for(auto &pair:S_1){
         auto L = pair.first;
         auto c = pair.second;
-        cipher_store_u[L] = c;
+        // cipher_store_u[L] = c;
+
+        // push <L,c> to edb-user
+        std::vector<std::vector<uint8_t>> params = {L, c.Iid, c.Rid, c.Cid, c.Iw, c.Rw, c.Cw};
+
+        const char *command = "insert into encrypted_index_table_user (location, iid, rid, cid, iw, rw, cw) values ($1, $2, $3, $4, $5, $6, $7);";
+        db1.writeData(params, command, 1);
     }
 }
 
-void KS2EServer::search_w(string type, vector<vector<unsigned char>> Tw, vector<vector<unsigned char>>& S)
+void KS2EServer::search_w(string type, vector<vector<unsigned char>> Tw, vector<vector<unsigned char>>& S, DBOGaccess& db1)
 {
-    map<vector<unsigned char>, cipher> cipher_store;
-    
-    if(type=="user") cipher_store = this->cipher_store_u;
-    else if(type=="owner") cipher_store = this->cipher_store_o;
-    else{
-        throw runtime_error("search_w failed,type is wrong!");
+    string table_name;
+    if(type=="user") table_name = "encrypted_index_table_user";
+    else if(type=="owner") table_name = "encrypted_index_table";
+    else {
+        throw runtime_error("search_id failed,type is wrong!");
     }
     
     auto L = Tw[0];
@@ -476,11 +537,21 @@ void KS2EServer::search_w(string type, vector<vector<unsigned char>> Tw, vector<
 
     vector<unsigned char> zero_L(f_len, 0);
 
+    PGresult* res;
+    
     while(L!=zero_L){
-        cipher c = cipher_store.at(L);
-        auto Iw = c.Iw;
-        auto Rw = c.Rw;
-        auto Cw = c.Cw;
+        // cipher c = cipher_store.at(L);
+        // get mw from DB
+        vector<vector<unsigned char>> params = {L};
+        string query = "select iw,rw,cw from "+table_name+" where location = $1";
+
+        vector<vector<vector<unsigned char>>>res_mw =  db1.readData(res, params, query.c_str(), 1);
+        // get res cols
+        // cout<<"cols: "<<PQnfields(res)<<endl;
+    
+        auto Iw = res_mw[0][0];
+        auto Rw = res_mw[0][1];
+        auto Cw = res_mw[0][2];
 
         vector<unsigned char> HJW = gm_hmac(Jw.data(),Jw.size(),Rw.data(),Rw.size(),f_len*2);// H(Jw,Rw)
         vector<unsigned char> L_1_Jw_1 = my_xor(HJW, Iw);
@@ -492,14 +563,19 @@ void KS2EServer::search_w(string type, vector<vector<unsigned char>> Tw, vector<
         L = L_1;
         Jw = Jw_1;
     }
+
+    // 清理
+    if (res != nullptr) {
+        PQclear(res);
+    }
 }
 
-void KS2EServer::search_id(string type, vector<vector<unsigned char>> Tid, vector<vector<unsigned char>>& S)
+void KS2EServer::search_id(string type, vector<vector<unsigned char>> Tid, vector<vector<unsigned char>>& S, DBOGaccess& db1)
 {
-    map<vector<unsigned char>, cipher> cipher_store;
-    
-    if(type=="user") cipher_store = this->cipher_store_u;
-    else if(type=="owner") cipher_store = this->cipher_store_o;
+
+    string table_name;
+    if(type=="user") table_name = "encrypted_index_table_user";
+    else if(type=="owner") table_name = "encrypted_index_table";
     else {
         throw runtime_error("search_id failed,type is wrong!");
     }
@@ -511,12 +587,23 @@ void KS2EServer::search_id(string type, vector<vector<unsigned char>> Tid, vecto
 
     vector<unsigned char> zero_L(f_len, 0);
 
-    while(L!=zero_L){
-        cipher c = cipher_store.at(L);
-        auto Iid = c.Iid;
-        auto Rid = c.Rid;
-        auto Cid = c.Cid;
+    PGresult* res;
 
+    while(L!=zero_L){
+        // cipher c = cipher_store.at(L);
+        // get mid from DB
+        vector<vector<unsigned char>> params = {L};
+        string query = "select iid,rid,cid from "+table_name+" where location = $1";
+
+        vector<vector<vector<unsigned char>>>res_mid =  db1.readData(res, params, query.c_str(), 1);
+        // get res cols
+        // cout<<"cols: "<<PQnfields(res)<<endl;
+    
+        auto Iid = res_mid[0][0];
+        auto Rid = res_mid[0][1];
+        auto Cid = res_mid[0][2];
+
+        // compute chain next
         vector<unsigned char> HJR = gm_hmac(Jid.data(),Jid.size(),Rid.data(),Rid.size(),f_len*2);
 
         vector<unsigned char> L_1_Jid_1 = my_xor(HJR, Iid);
@@ -527,5 +614,10 @@ void KS2EServer::search_id(string type, vector<vector<unsigned char>> Tid, vecto
 
         L = L_1;
         Jid = Jid_1;
+    }
+
+    // 清理
+    if (res != nullptr) {
+        PQclear(res);
     }
 }

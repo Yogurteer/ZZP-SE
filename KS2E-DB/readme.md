@@ -1,34 +1,29 @@
-# KS2E imp（Branch）单机版
+# KS2E imp（Branch）DB版
 
 ## Version
 
-v1 on 4.3
+v2 on 6.6
 
 by Zhenpeng Zhou
 
-## Env
+## Requirement
 
+* ubuntu 20.04
+* g++ 9.4.0 
+* openGauss 6.0.1 (LTS)
+* PostgreSQL 12.22（libpq）
 * GmSSL 3.1.2
-* OpenSSL 3.0.2
-* GMP
-* g++
+* OpenSSL 1.1.1w
 
 ## **Description**
 
-- 通过GMssl实现hash，hmac，安全信道
+- 通过c++实现的KS2E，具备更新，搜索，分享以及重建功能
+- 实现了client类和server类，在一个程序中通过中间参数隔离模拟通信
+- 通过GMssl实现hash，hmac
 - 所有输入输出数据以 `vector<unsigned char>`类型传递,如keyword,id,op
+- openGauss中的密文索引，密文文件数据以bytea类型存储，通过二进制格式读写
 
 ## Run
 
 * 在当前目录下make run
-
-## Goal
-
-* [X] 在FPKS2E基础上，从单链拓展到双链
-* [ ] user,owner与server之间的通信通过SM9安全信道实现
-* [X] lastID存id而不是id_op
-* [X] 不需要UC，SC计数器
-* [X] unsigned char*作为二进制数据处理而不是字符串
-* [X] 完善sharetoken，share功能，拓展user，owner三种用户
-* [X] 与W空间类似,记录id空间,W||id,从而实现按id搜索功能排除重复更新
-* [X] 当owner分享给user一个id对应的{w}时,user除了更新每个w下的lastID,是否需要更新id下的最后一个w?是
+* 自行准备模拟明文，本代码以读取数据库形式导入

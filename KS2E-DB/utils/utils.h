@@ -15,7 +15,20 @@
 #include <algorithm>
 #include <iomanip>
 
+#include "../include/DBOGaccess.hpp"
+#include "encrypt.h"
+
 using namespace std;
+
+const unsigned char DELIMITER = ' '; // 空格可换成 0x1F 等不可见字符
+
+std::string vectorToHexStr(const std::vector<uint8_t>& datavec);
+
+vector<unsigned char> encodeWithDelimiter(const vector<vector<unsigned char>>& input);
+
+vector<vector<unsigned char>> decodeWithDelimiter(const vector<unsigned char>& input);
+
+void printVector(const std::vector<uint8_t>& datavec);
 
 void view_pt(const std::vector<unsigned char>& v_w);
 
@@ -100,6 +113,12 @@ void get_L_1_ks_1(std::vector<unsigned char>& L_1_ks_1,std::vector<unsigned char
  * @return unsigned int 
  */
 unsigned int bytesToUint(const std::vector<unsigned char>& bytes);
+
+void search_output_vk(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
+                   const std::string& search_output_dir, DBOGaccess& db1);
+
+void search_output_kv(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
+                   const std::string& search_output_dir, DBOGaccess& db1);
 
 /**
  * @brief write search result to files

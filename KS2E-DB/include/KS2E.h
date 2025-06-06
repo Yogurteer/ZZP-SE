@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include "encrypt.h"
+#include "DBOGaccess.hpp"
 
 # define f_len 8
 # define key_len 32
@@ -113,18 +114,18 @@ public:
 
     void reset_cipher_store();
 
-    void re_o_update(pair<vector<unsigned char>, cipher> Cwid);
+    void re_o_update(pair<vector<unsigned char>, cipher> Cwid, DBOGaccess& db1);
 
-    void re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<unsigned char>>& S);
+    void re_share_w_1(vector<vector<unsigned char>> Dw, vector<vector<unsigned char>>& S, DBOGaccess& db1);
 
-    void re_share_w_2(map<vector<unsigned char>, cipher> S_1);
+    void re_share_w_2(map<vector<unsigned char>, cipher> S_1, DBOGaccess& db1);
 
-    void re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<unsigned char>>& S);
+    void re_share_id_1(vector<vector<unsigned char>> Did, vector<vector<unsigned char>>& S, DBOGaccess& db1);
 
-    void re_share_id_2(map<vector<unsigned char>, cipher> S_1);
+    void re_share_id_2(map<vector<unsigned char>, cipher> S_1, DBOGaccess& db1);
 
-    void search_w(string type, vector<vector<unsigned char>> Tw, vector<vector<unsigned char>>& S);
+    void search_w(string type, vector<vector<unsigned char>> Tw, vector<vector<unsigned char>>& S, DBOGaccess& db1);
 
-    void search_id(string type, vector<vector<unsigned char>> Tid, vector<vector<unsigned char>>& S);
+    void search_id(string type, vector<vector<unsigned char>> Tid, vector<vector<unsigned char>>& S, DBOGaccess& db1);
 };
 

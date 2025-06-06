@@ -1,5 +1,56 @@
 #include "utils.h"
 
+std::string vectorToHexStr(const std::vector<uint8_t>& datavec) {
+    std::stringstream ss;
+
+    for (const auto& byte : datavec) {
+        ss << std::setw(2) << std::setfill('0') << std::hex 
+           << static_cast<int>(byte);
+    }
+
+    return ss.str();
+}
+
+vector<unsigned char> encodeWithDelimiter(const vector<vector<unsigned char>>& input) {
+    vector<unsigned char> result;
+    for (size_t i = 0; i < input.size(); ++i) {
+        result.insert(result.end(), input[i].begin(), input[i].end());
+        if (i != input.size() - 1) {
+            result.push_back(DELIMITER);  // 添加分隔符
+        }
+    }
+    return result;
+}
+
+vector<vector<unsigned char>> decodeWithDelimiter(const vector<unsigned char>& input) {
+    vector<vector<unsigned char>> result;
+    vector<unsigned char> current;
+
+    for (unsigned char byte : input) {
+        if (byte == DELIMITER) {
+            result.push_back(current);
+            current.clear();
+        } else {
+            current.push_back(byte);
+        }
+    }
+    if (!current.empty()) {
+        result.push_back(current); // 添加最后一部分
+    }
+
+    return result;
+}
+
+void printVector(const std::vector<uint8_t>& datavec) {
+    for (size_t j = 0; j < datavec.size(); ++j) {
+        // 打印每个字节，使用十六进制格式
+        std::cout << std::setw(2) << std::setfill('0') 
+                    << std::hex << (int)datavec[j];
+        std::cout << std::dec;  // 设置为十进制输出
+    }
+    cout<<endl;
+}
+
 void view_pt(const std::vector<unsigned char>& v_w) {
     string w(v_w.begin(), v_w.end());
     cout<<w;
@@ -169,6 +220,91 @@ unsigned int bytesToUint(const std::vector<unsigned char>& bytes) {
     return id;
 }
 
+void search_output_vk(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
+                   const std::string& search_output_dir, DBOGaccess& db1) {
+    string file_path = search_output_dir;
+    // 打开文件
+    std::ofstream outfile(file_path);
+
+    if (!outfile.is_open()) {
+        throw std::ios_base::failure("Failed to open file: " + file_path);
+    }
+
+    for (const auto& entry : search_result) {
+        vector<unsigned char> v_file_id = entry.first;
+        auto keywords = entry.second;
+        // 写入kv
+        outfile << "file ID: " << endl;
+        string hexstr = vectorToHexStr(v_file_id);
+        outfile << hexstr << std::endl;
+
+        outfile << "keyword: ";
+        if(keywords.size()==0){
+            outfile << " NULL" << endl;
+            continue;
+        }
+        for (auto v_keyword : keywords) {
+            vector<unsigned char> keyword = v_keyword;
+            string str_keyword(keyword.begin(), keyword.end());// 还原keyowrd类型为string
+            outfile << endl << str_keyword; // 每个 keyword 之间空格
+        }
+        outfile << std::endl;
+    }
+
+    // 关闭文件
+    outfile.close();
+
+    cout<<"查询结果已写入"<<search_output_dir<<endl;
+}
+
+void search_output_kv(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
+                   const std::string& search_output_dir, DBOGaccess& db1) {
+    PGresult* res;
+
+    string file_path = search_output_dir;
+    // 打开文件
+    std::ofstream outfile(file_path);
+
+    if (!outfile.is_open()) {
+        throw std::ios_base::failure("Failed to open file: " + file_path);
+    }
+
+    for (const auto& entry : search_result) {
+        vector<unsigned char> v_w = entry.first;
+        string w(v_w.begin(), v_w.end());// 还原keyword类型为string
+        auto ids = entry.second;
+        // 写入kv
+        outfile << "keyword: " << endl << w << std::endl;
+        outfile << "file content: ";
+        if(ids.size()==0){
+            outfile << " NULL" << endl;
+            continue;
+        }
+        for (auto v_id : ids) {
+            vector<unsigned char> file_id = v_id;
+            vector<vector<unsigned char>> params = {file_id};
+            
+            auto r = db1.readData(res, params, "SELECT encrypted_file FROM encrypted_file_table WHERE file_id = $1", 1, 1);
+            
+            vector<unsigned char> enc_file = r[0][0]; // 获取加密的文件内容
+            vector<unsigned char> file = my_xor(enc_file, file_id); 
+            string file_content(file.begin(), file.end());// 还原id类型为string
+            outfile << endl << file_content; // 每个 id 之间空格
+        }
+        outfile << std::endl;
+    }
+
+    // 关闭文件
+    outfile.close();
+
+    // 清理
+    if (res != nullptr) {
+        PQclear(res);
+    }
+
+    cout<<"查询结果已写入"<<search_output_dir<<endl;
+}
+
 void search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> search_result, 
                    const std::string& search_output_dir) {
         
@@ -185,7 +321,7 @@ void search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> sear
         string w(v_w.begin(), v_w.end());// 还原keyword类型为string
         auto ids = entry.second;
         // 写入 w 和 id 信息
-        outfile << "w: " << w << std::endl;
+        outfile << "w: " << endl << w << std::endl;
         outfile << "id:";
         if(ids.size()==0){
             outfile << " NULL" << endl;
@@ -193,7 +329,7 @@ void search_output(map<vector<unsigned char>,vector<vector<unsigned char>>> sear
         }
         for (auto v_id : ids) {
             string id(v_id.begin(), v_id.end());// 还原id类型为string
-            outfile << " " << id; // 每个 id 之间空格
+            outfile << endl << id; // 每个 id 之间空格
         }
         outfile << std::endl;
     }

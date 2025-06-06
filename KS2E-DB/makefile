@@ -15,7 +15,7 @@ OPENSSL_INC = $(OPENSSL_DIR)/include
 CXXFLAGS = -Wall -g -O0 -std=c++17 -I$(OPENSSL_INC)
 
 # 链接器选项
-LDFLAGS = -L$(OPENSSL_LIB) -lgmp -lssl -lcrypto -Wl,-rpath,$(OPENSSL_LIB)
+LDFLAGS = -L$(OPENSSL_LIB) -lgmp -lpq -lssl -lcrypto -Wl,-rpath,$(OPENSSL_LIB)
 
 # 可执行文件
 TARGET = main
@@ -34,6 +34,10 @@ SRCS = \
     src/main.cpp \
     $(UTILS_SRCS) \
     $(PROTOCOL_SRCS) \
+
+# SRCS = \
+#     test/DBOGdemo.cpp \
+
 
 all: $(TARGET)
 
