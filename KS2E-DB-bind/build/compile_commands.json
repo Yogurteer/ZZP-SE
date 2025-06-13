@@ -1,0 +1,27 @@
+[
+{
+  "directory": "/usr/local/wsl-code/KS2E-DB-bind/build",
+  "command": "/usr/bin/c++  -DKS2E_Owner_EXPORTS -I/usr/local/wsl-code/KS2E-DB-bind/include -I/usr/local/wsl-code/KS2E-DB-bind/utils -I/usr/include/python3.8  -g -fPIC   -std=gnu++17 -o CMakeFiles/KS2E_Owner.dir/src/i_owner.cpp.o -c /usr/local/wsl-code/KS2E-DB-bind/src/i_owner.cpp",
+  "file": "/usr/local/wsl-code/KS2E-DB-bind/src/i_owner.cpp"
+},
+{
+  "directory": "/usr/local/wsl-code/KS2E-DB-bind/build",
+  "command": "/usr/bin/c++  -DKS2E_Owner_EXPORTS -I/usr/local/wsl-code/KS2E-DB-bind/include -I/usr/local/wsl-code/KS2E-DB-bind/utils -I/usr/include/python3.8  -g -fPIC   -std=gnu++17 -o CMakeFiles/KS2E_Owner.dir/utils/utils.cpp.o -c /usr/local/wsl-code/KS2E-DB-bind/utils/utils.cpp",
+  "file": "/usr/local/wsl-code/KS2E-DB-bind/utils/utils.cpp"
+},
+{
+  "directory": "/usr/local/wsl-code/KS2E-DB-bind/build",
+  "command": "/usr/bin/c++  -DKS2E_Owner_EXPORTS -I/usr/local/wsl-code/KS2E-DB-bind/include -I/usr/local/wsl-code/KS2E-DB-bind/utils -I/usr/include/python3.8  -g -fPIC   -std=gnu++17 -o CMakeFiles/KS2E_Owner.dir/utils/encrypt.cpp.o -c /usr/local/wsl-code/KS2E-DB-bind/utils/encrypt.cpp",
+  "file": "/usr/local/wsl-code/KS2E-DB-bind/utils/encrypt.cpp"
+},
+{
+  "directory": "/usr/local/wsl-code/KS2E-DB-bind/build",
+  "command": "/usr/bin/c++  -DKS2E_Owner_EXPORTS -I/usr/local/wsl-code/KS2E-DB-bind/include -I/usr/local/wsl-code/KS2E-DB-bind/utils -I/usr/include/python3.8  -g -fPIC   -std=gnu++17 -o CMakeFiles/KS2E_Owner.dir/utils/inter.cpp.o -c /usr/local/wsl-code/KS2E-DB-bind/utils/inter.cpp",
+  "file": "/usr/local/wsl-code/KS2E-DB-bind/utils/inter.cpp"
+},
+{
+  "directory": "/usr/local/wsl-code/KS2E-DB-bind/build",
+  "command": "/usr/bin/c++  -DKS2E_Owner_EXPORTS -I/usr/local/wsl-code/KS2E-DB-bind/include -I/usr/local/wsl-code/KS2E-DB-bind/utils -I/usr/include/python3.8  -g -fPIC   -std=gnu++17 -o CMakeFiles/KS2E_Owner.dir/include/KS2E.cpp.o -c /usr/local/wsl-code/KS2E-DB-bind/include/KS2E.cpp",
+  "file": "/usr/local/wsl-code/KS2E-DB-bind/include/KS2E.cpp"
+}
+]

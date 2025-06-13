@@ -1,0 +1,11 @@
+Setup Execution time: 0.000155615 s
+Update Execution time: 14.2334 s
+Search-owner-id Execution time: 0.106903 s
+Search-owner-w Execution time: 0.0212332 s
+Sharetoken Execution time: 0.000651905 s
+Share Execution time: 0.237737 s
+Search-user-w Execution time: 0.0177491 s
+Search-user-id Execution time: 0.00610023 s
+
+Total Execution time: 14.66 s
+Peak memory usage: 11844 KB

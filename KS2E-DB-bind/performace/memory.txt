@@ -1,0 +1,5 @@
+1-8 11412 KB
+only db 8976 KB
+simplest main 1668 KB
+estimate usage for 120entries 2436KB
+expected usage for 12000entries 243600KB

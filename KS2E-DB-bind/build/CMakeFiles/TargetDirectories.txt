@@ -1,0 +1,3 @@
+/usr/local/wsl-code/KS2E-DB-bind/build/CMakeFiles/rebuild_cache.dir
+/usr/local/wsl-code/KS2E-DB-bind/build/CMakeFiles/edit_cache.dir
+/usr/local/wsl-code/KS2E-DB-bind/build/CMakeFiles/KS2E_Owner.dir
