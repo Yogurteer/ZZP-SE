@@ -1,0 +1,9 @@
+---|KS2E Protocol Test|---
+Setup Execution time: 0.000169622 s
+Update Execution time: 1.19181 s
+Plain rows: 120
+Search size: 476
+Search Execution time: 1.2727 s
+
+Total Execution time: 2.46487 s
+Peak memory usage: 18432 KB
