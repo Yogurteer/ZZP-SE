@@ -8,13 +8,15 @@ by Zhenpeng Zhou
 
 ## Env
 
-* GmSSL 3.1.2
+* Ubuntu 22.04
+* g++ 9.4.0 
+* GmSSL 3.1.2 
 * OpenSSL 3.0.2
-* GMP
-* g++
 
 ## **Description**
 
+- 实现双链隐式倒排索引结构
+- 关键字可搜索对称加密框架
 - 通过GMssl实现hash，hmac，安全信道
 - 所有输入输出数据以 `vector<unsigned char>`类型传递,如keyword,id,op
 
@@ -25,7 +27,6 @@ by Zhenpeng Zhou
 ## Goal
 
 * [X] 在FPKS2E基础上，从单链拓展到双链
-* [ ] user,owner与server之间的通信通过SM9安全信道实现
 * [X] lastID存id而不是id_op
 * [X] 不需要UC，SC计数器
 * [X] unsigned char*作为二进制数据处理而不是字符串
